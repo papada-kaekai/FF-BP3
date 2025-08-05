@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Welcome to Draft</title>
+<style>
+    body { 
+        font-family: Arial, sans-serif; 
+        text-align: center; 
+        background: #111; 
+        color: white; 
+        padding: 50px; 
+        display: flex; 
+        flex-direction: column; 
+        justify-content: center; 
+        align-items: center; 
+        min-height: 100vh; 
+        margin: 0; 
+    }
+    h1 { 
+        margin-bottom: 40px; 
+        font-size: 3em; 
+    }
+    .welcome-buttons { 
+        display: flex; 
+        gap: 30px; 
+    }
+    .welcome-buttons button {
+        font-size: 2em;
+        padding: 20px 40px;
+        cursor: pointer;
+        border: 2px solid #555;
+        border-radius: 10px;
+        background-color: #333;
+        color: white;
+        transition: background-color 0.3s, border-color 0.3s;
+    }
+    .welcome-buttons button:hover {
+        background-color: #555;
+        border-color: #aaa;
+    }
+    #teamAButton { 
+        background-color: #007bff; 
+        border-color: #007bff; 
+    }
+    #teamAButton:hover { 
+        background-color: #0056b3; 
+        border-color: #0056b3; 
+    }
+    #teamBButton { 
+        background-color: #dc3545; 
+        border-color: #dc3545; 
+    }
+    #teamBButton:hover { 
+        background-color: #c82333; 
+        border-color: #c82333; 
+    }
+</style>
+</head>
+<body>
+<h1>Select Your Team</h1>
+<div class="welcome-buttons">
+    <button id="teamAButton" onclick="window.location.href='team_a.html'">Team A</button>
+    <button id="teamBButton" onclick="window.location.href='team_b.html'">Team B</button>
+</div>
+<script>
+    // Firebase config and setup
+const firebaseConfig = {
+  apiKey: "AIzaSyABt9nC7xwPS6csR3gEFgpLbKk3RN9eBzI",
+  authDomain: "ff-bp3.firebaseapp.com",
+  databaseURL: "https://ff-bp3-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ff-bp3",
+  storageBucket: "ff-bp3.firebasestorage.app",
+  messagingSenderId: "819997534622",
+  appId: "1:819997534622:web:e5a93a2b0878bd84af8e8f",
+  measurementId: "G-B6Q2170EHS"
+};
+
+
+
+
+    firebase.initializeApp(firebaseConfig);
+    // หมายเหตุ: หน้านี้ (welcome.html) ไม่ได้ใช้ Firebase สำหรับการดำเนินงานข้อมูลโดยตรง
+    // การเริ่มต้น Firebase ที่นี่มีไว้เพื่อความสอดคล้องระหว่างไฟล์ต่างๆ
+    // แต่การป้อนชื่อทีมและการบันทึกข้อมูลจริงเกิดขึ้นบนหน้า team_a.html และ team_b.html
+</script>
+</body>
+</html>

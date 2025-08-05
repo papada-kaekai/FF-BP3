@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ban/Pick - Team A</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<style>
+  /* Global styles for a modern dark theme */
+  html {
+      /* Base font size scales with viewport width, stopping at 890px. */
+      font-size: calc(100vw / 1920 * 16px);
+      min-width: 890px; /* Minimum width before horizontal scrollbar appears */
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    text-align: center;
+    background-color: #1a1a2e; /* Deep blue-purple background */
+    color: #e0e0e0; /* Light gray text */
+    padding: 0.8rem; /* Adjusted padding using rem */
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between; /* Distribute content vertically */
+    box-sizing: border-box;
+    min-height: 100vh; /* Ensure it takes full viewport height */
+    overflow-y: auto; /* Allow scrolling for the entire body content */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #8c8cff #2a2a4a; /* Firefox */
+  }
+
+  /* Custom scrollbar for Webkit browsers (body) */
+  body::-webkit-scrollbar {
+    width: 0.5rem; /* Use rem for scrollbar width */
+  }
+
+  body::-webkit-scrollbar-track {
+    background: #2a2a4a;
+    border-radius: 0.625rem; /* Use rem for border-radius */
+  }
+
+  body::-webkit-scrollbar-thumb {
+    background-color: #8c8cff;
+    border-radius: 0.625rem; /* Use rem for border-radius */
+    border: 0.125rem solid #2a2a4a; /* Use rem for border */
+  }
+
+  h1 {
+    font-size: 2.1rem; /* Use rem */
+    color: #e0e0e0;
+    margin-bottom: 0.8rem; /* Use rem */
+    letter-spacing: 0.0625rem; /* Use rem */
+  }
+
+  /* Info displays (timer, turn info, reserve) */
+  #infoSection {
+    width: 100%;
+    max-width: 75rem; /* Limit width using rem */
+    margin-bottom: 1.2rem; /* Use rem */
+  }
+
+  #stickyHeader {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    background-color: #1a1a2e; /* Same as body background or slightly darker */
+    padding: 0.5rem 0;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.2); /* Subtle shadow */
+    z-index: 100; /* Ensure it stays on top */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #turnInfo {
+    font-size: 1.5rem; /* Use rem */
+    font-weight: 600;
+    color: #8c8cff;
+    margin-bottom: 0.6rem; /* Use rem */
+    text-transform: uppercase;
+  }
+
+  #timer {
+    font-size: 3.2rem; /* Use rem */
+    font-weight: 700;
+    color: #aaffaa;
+    background: #2a2a4a;
+    padding: 0.4rem 0.9rem; /* Use rem */
+    border-radius: 0.75rem; /* Use rem */
+    margin: 0.7rem 0; /* Use rem */
+    box-shadow: 0 0.25rem 0.625rem rgba(0, 0, 0, 0.4); /* Use rem */
+    min-width: 7.5rem; /* Use rem */
+    display: inline-block;
+  }
+
+  #reserves {
+    font-size: 0.95rem; /* Use rem */
+    color: #ccc;
+    margin-bottom: 0.4rem; /* Use rem */
+  }
+
+  #reserveStatus {
+    font-size: 0.75rem; /* Use rem */
+    color: #ffcc00;
+    margin-top: 0.2rem; /* Use rem */
+  }
+
+  #actionLabel {
+    font-size: 1.3rem; /* Use rem */
+    font-weight: 700;
+    margin-bottom: 0.8rem; /* Use rem */
+    text-transform: uppercase;
+    text-shadow: 0 0 0.3125rem rgba(255, 255, 255, 0.2); /* Use rem */
+  }
+
+  /* Ready status and sync dots */
+  #readyStatus {
+    font-size: 0.95rem; /* Use rem */
+    margin-bottom: 1.2rem; /* Use rem */
+    display: flex;
+    justify-content: space-between; /* Distribute items to edges */
+    align-items: flex-start; /* Align groups to their top */
+    gap: 0.8rem; /* Use rem for gap between main groups */
+    background: #2a2a4a;
+    padding: 0.7rem 1.2rem; /* Use rem */
+    border-radius: 0.625rem; /* Use rem */
+    box-shadow: 0 0.1875rem 0.375rem rgba(0, 0, 0, 0.3); /* Use rem */
+    width: 100%; /* Make it take full width of parent */
+    box-sizing: border-box; /* Include padding in width */
+  }
+
+  #readyStatus .status-group { /* Group for status text and dots */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Align contents to the left */
+    gap: 0.4rem;
+    flex-basis: 50%; /* Take half width */
+  }
+
+  #readyStatus .status-group.right { /* For Team B status to be right-aligned within its group */
+    align-items: flex-end; /* Align contents to the right */
+  }
+
+
+  .sync-status {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem; /* Use rem */
+    font-weight: 600;
+  }
+
+  .sync-dot {
+    width: 0.5625rem; /* Use rem */
+    height: 0.5625rem; /* Use rem */
+    border-radius: 50%;
+    background-color: #888;
+    border: 0.0625rem solid #555; /* Use rem */
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+
+  .sync-dot.connected {
+    background-color: #3cb371;
+    border-color: #2e8b57;
+    box-shadow: 0 0 0.375rem rgba(60, 179, 113, 0.6); /* Use rem */
+  }
+
+  .sync-dot.disconnected {
+    background-color: #dc3545;
+    border-color: #b02a37;
+    box-shadow: 0 0 0.375rem rgba(220, 53, 69, 0.6); /* Use rem */
+  }
+
+  /* Team Inputs and Player rows */
+  #teamInputs {
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch; /* Stretch items to fill height */
+    margin-bottom: 1.2rem; /* Use rem */
+    width: 95vw; /* Use viewport width */
+    max-width: 75rem; /* Use rem */
+    gap: 1.2rem; /* Use rem */
+  }
+
+  #teamInputs > div { /* Individual team input containers */
+    flex: 1;
+    background: #2a2a4a;
+    padding: 0.9rem; /* Use rem */
+    border-radius: 0.625rem; /* Use rem */
+    box-shadow: 0 0.1875rem 0.625rem rgba(0, 0, 0, 0.4); /* Use rem */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .team-info-group { /* Wrapper for Name and Players sections within a team div */
+    display: flex;
+    flex-direction: row;
+    gap: 0.8rem; /* Use rem */
+    flex-wrap: nowrap; /* Prevent wrapping unless explicitly defined in media query */
+    align-items: flex-start;
+    flex-grow: 1;
+  }
+
+  .right-align-group { /* For Team B to flip UI */
+    flex-direction: row-reverse;
+  }
+
+  .team-name-section, .players-section {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+  }
+
+  .team-name-section {
+    flex-basis: 30%; /* Allocate slightly less for name */
+    min-width: 6.25rem; /* Use rem */
+  }
+
+  .players-section {
+    flex-basis: 65%; /* Allocate more space for player inputs */
+    min-width: 12.5rem; /* Use rem */
+  }
+
+
+  #teamInputs strong {
+    font-size: 0.95rem; /* Use rem */
+    color: #e0e0e0;
+    margin-bottom: 0.4rem; /* Use rem */
+    display: block;
+    text-align: left;
+  }
+  /* Align text to right for Team B's strong */
+  #teamInputs > div:last-child .team-name-section strong,
+  #teamInputs > div:last-child .players-section strong {
+    text-align: right;
+  }
+
+  /* Center the "Players A" and "Players B" labels */
+  .players-section strong {
+    text-align: center !important; /* Override other alignments */
+  }
+
+
+  #teamInputs input[type="text"] {
+    background: #1a1a2e;
+    border: 0.0625rem solid #555; /* Use rem */
+    border-radius: 0.3125rem; /* Use rem */
+    padding: 0.4rem 0.7rem; /* Use rem */
+    color: #e0e0e0;
+    font-size: 0.85rem; /* Use rem */
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  /* Specific alignment for Team B's team name input */
+  #teamInputs > div:last-child .team-name-section input#teamBName {
+    text-align: right;
+  }
+
+  #teamInputs input[type="text"]:focus {
+    border-color: #8c8cff;
+    box-shadow: 0 0 0.3125rem rgba(140, 140, 255, 0.5); /* Use rem */
+    outline: none;
+  }
+
+  #teamInputs input[type="text"]:disabled {
+    opacity: 0.6;
+    background-color: #3a3a5a;
+    cursor: not-allowed;
+  }
+
+  .player-row {
+    display: flex;
+    flex-wrap: nowrap; /* Keep inputs on one line */
+    gap: 0.4rem; /* Use rem */
+    margin-top: 0.4rem; /* Use rem */
+    justify-content: space-between;
+    align-items: center;
+    flex-grow: 1;
+  }
+  /* Align player inputs to the right for Team B */
+  .player-row.right {
+    justify-content: space-between;
+  }
+
+  .player-row input {
+    flex-basis: calc(25% - 0.4rem); /* Adjusted for 4 players */
+    flex-grow: 1;
+    min-width: 2.8125rem; /* Use rem */
+    padding: 0.3rem 0.5rem; /* Use rem */
+    font-size: 0.8rem; /* Use rem */
+    box-sizing: border-box;
+  }
+
+  /* Teams and Slots */
+  .teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin: 1.2rem 0; /* Use rem */
+    width: 98vw; /* Use viewport width */
+    max-width: 80rem; /* Use rem */
+    gap: 0.8rem; /* Use rem */
+  }
+
+  .team {
+    display: flex;
+    gap: 0.7rem; /* Use rem */
+    flex-wrap: wrap;
+    justify-content: center;
+    background: #2a2a4a;
+    padding: 1rem; /* Use rem */
+    border-radius: 1rem; /* Use rem */
+    box-shadow: 0 0.3125rem 0.9375rem rgba(0, 0, 0, 0.5); /* Use rem */
+    flex: 1;
+  }
+
+  .slot {
+    width: 4.375rem; /* Use rem */
+    height: 6.2rem; /* Adjusted height to accommodate player dropdown */
+    background: #3a3a5a;
+    border: 0.125rem solid #444; /* Use rem */
+    border-radius: 0.5625rem; /* Use rem */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start; /* Push content to the top */
+    font-weight: bold;
+    font-size: 0.75rem; /* Use rem */
+    color: #e0e0e0;
+    overflow: hidden;
+    transition: border-color 0.3s ease, background-color 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 0.125rem 0.3125rem rgba(0, 0, 0, 0.3); /* Use rem */
+    padding-top: 0.2rem; /* Small padding at the top */
+    box-sizing: border-box; /* Include padding in height calculation */
+  }
+
+  .slot.ban {
+    background: #8b0000;
+    border-color: #a00;
+    justify-content: center;
+  }
+
+  .slot.active {
+    border-color: #aaffaa;
+    box-shadow: 0 0 0.625rem rgba(170, 255, 170, 0.6); /* Use rem */
+  }
+
+  .slot.confirmed {
+    border-color: #8c8cff;
+  }
+
+  .slot img {
+    width: 90%;
+    height: 3.5rem;
+    object-fit: cover;
+    border-radius: 0.4375rem;
+    filter: brightness(0.95);
+    margin-bottom: 0.1rem;
+  }
+
+  .slot > div {
+    font-size: 0.65rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 95%;
+    color: #e0e0e0;
+    flex-shrink: 0;
+  }
+  
+  .slot select {
+    margin-top: 0.2rem;
+    font-size: 0.6rem;
+    width: calc(100% - 0.4rem);
+    background-color: #1a1a2e;
+    color: #e0e0e0;
+    border: 1px solid #666;
+    border-radius: 0.2rem;
+    padding: 0.1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .slot select:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+  }
+
+
+    /* Styles for the team labels within ban slots and active pick/ban slots */
+  .slot .team-label {
+    font-weight: bold;
+    font-size: 1.2rem; /* Initial size for larger screens */
+    color: #fff;
+    /* margin-right: 0.2rem; For Ban slot specifically, not needed for pick slots */
+  }
+
+  /* Responsive Adjustments for Smaller Screens for team labels */
+  @media (max-width: 960px) {
+    .slot .team-label {
+      display: block; /* Makes A/B appear on a new line */
+      margin-bottom: 0.1rem;
+      font-size: 1.5rem; /* Larger on smaller screens */
+    }
+  }
+
+  /* Controls (buttons) */
+  .controls {
+    margin-top: 1.2rem; /* Use rem */
+    display: flex;
+    justify-content: center;
+    gap: 0.8rem; /* Use rem */
+    width: 100%;
+  }
+
+  button {
+    font-size: 0.95rem; /* Use rem */
+    padding: 0.7rem 1.4rem; /* Use rem */
+    cursor: pointer;
+    border: none;
+    border-radius: 0.5rem; /* Use rem */
+    background-color: #8c8cff;
+    color: #1a1a2e;
+    font-weight: 600;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.3); /* Use rem */
+  }
+
+  button:hover:not(:disabled) {
+    background-color: #a0a0ff;
+    transform: translateY(-0.125rem); /* Use rem */
+    box-shadow: 0 0.1875rem 0.5rem rgba(0, 0, 0, 0.4); /* Use rem */
+  }
+
+  button:disabled {
+    background-color: #555;
+    color: #aaa;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  /* Ready button specific styling */
+  .ready-button { /* Styling for the ready button (when not yet pressed/ready) */
+    background-color: #3cb371; /* Green color from the image */
+    color: #e0e0e0;
+    box-shadow: 0 0.125rem 0.3125rem rgba(0,0,0,0.3); /* Use rem */
+    min-width: 8rem; /* Ensure buttons have consistent width */
+    margin-top: 0.8rem; /* Space from team inputs */
+    padding: 0.6rem 1.2rem; /* Adjust padding for visual consistency */
+  }
+  .ready-button.ready-active { /* Styling when the team IS ready (button pressed) */
+    background-color: #555; /* Grey color when ready */
+    color: #aaa;
+  }
+  .ready-button:hover:not(:disabled) {
+    filter: brightness(1.2); /* Slightly brighter on hover */
+  }
+  .ready-button:disabled {
+    opacity: 0.6; /* Dim it when disabled */
+    cursor: not-allowed;
+  }
+
+  /* Character Pool */
+  .pool {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.9rem; /* Use rem */
+    margin-top: 1.8rem; /* Use rem */
+    width: 95vw; /* Use viewport width */
+    max-width: 80rem; /* Use rem */
+    background: #2a2a4a;
+    padding: 1.2rem; /* Use rem */
+    border-radius: 1rem; /* Use rem */
+    box-shadow: inset 0 0 0.625rem rgba(0, 0, 0, 0.3); /* Use rem */
+    flex-shrink: 0;
+  }
+
+  .character {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 5rem; /* Use rem */
+    height: auto;
+    padding: 0.5rem; /* Use rem */
+    background: #3a3a5a;
+    border: 0.0625rem solid #5a5a7a; /* Use rem */
+    border-radius: 0.4375rem; /* Use rem */
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.2); /* Use rem */
+  }
+
+  .character img {
+    width: 100%;
+    height: 5.625rem; /* Use rem */
+    object-fit: cover;
+    border-radius: 0.3125rem; /* Use rem */
+    margin-bottom: 0.3rem; /* Use rem */
+  }
+
+  .character > div { /* Character name below image */
+    font-size: 0.7rem; /* Use rem */
+    font-weight: 400;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    color: #e0e0e0;
+  }
+
+  .character:hover {
+    border-color: #8c8cff;
+    transform: translateY(-0.125rem); /* Use rem */
+    box-shadow: 0 0.1875rem 0.5rem rgba(140, 140, 255, 0.4); /* Use rem */
+  }
+
+  .character.used {
+    opacity: 0.5;
+    /* pointer-events: none; Remove this to allow deselection */
+    filter: grayscale(80%);
+    border-color: #4a4a5a;
+    box-shadow: none;
+  }
+
+  /* Confirmation Modals */
+  .confirm-modal, #playerAssignmentSummaryModal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    background: rgba(0,0,0,0.7); /* Black w/ opacity */
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(5px); /* Add blur effect */
+  }
+
+  .confirm-modal > div, #playerAssignmentSummaryModal > div {
+    background: #2a2a4a;
+    padding: 2rem;
+    border-radius: 0.8rem;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.5);
+    text-align: center;
+    max-width: 90%;
+    min-width: 250px;
+  }
+
+  .confirm-modal h3, #playerAssignmentSummaryModal h3 {
+    color: #e0e0e0;
+    margin-bottom: 1.5rem;
+    font-size: 1.2rem;
+  }
+
+  .confirm-modal button, #playerAssignmentSummaryModal button {
+    font-size: 1rem;
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    border: none;
+    border-radius: 0.4rem;
+    font-weight: 600;
+    transition: background-color 0.3s ease;
+  }
+
+  .confirm-modal button.yes, #playerAssignmentSummaryModal button.confirm-close {
+    background-color: #3cb371; /* Green for confirm/close */
+    color: white;
+  }
+  .confirm-modal button.yes:hover, #playerAssignmentSummaryModal button.confirm-close:hover {
+    background-color: #2e8b57;
+  }
+
+  .confirm-modal button.no {
+    background-color: #dc3545; /* Red for cancel/destructive */
+    color: white;
+  }
+  .confirm-modal button.no:hover {
+    background-color: #c82333;
+  }
+
+  /* Player Assignment Summary Modal Specific Styles */
+  #playerAssignmentSummaryModal > div {
+      padding: 1.5rem;
+      max-width: 80rem;
+      width: 95%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+  }
+  #playerAssignmentSummaryModal h3 {
+      font-size: 1.8rem;
+      color: #aaffaa;
+      margin-bottom: 1rem;
+  }
+  .summary-modal-content {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      width: 100%;
+      flex-wrap: wrap; /* Allow wrapping on smaller screens */
+  }
+  .summary-team-card {
+      background: #1a1a2e; /* Darker background than modal itself */
+      padding: 1rem;
+      border-radius: 0.6rem;
+      box-shadow: 0 0.2rem 0.8rem rgba(0,0,0,0.4);
+      flex: 1;
+      min-width: 280px;
+      max-width: 48%; /* Max width for two columns */
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+  }
+  .summary-team-card h4 {
+      font-size: 1.4rem;
+      color: #8c8cff;
+      margin-bottom: 0.8rem;
+      border-bottom: 1px solid #4a4a5a;
+      padding-bottom: 0.4rem;
+      width: 100%;
+  }
+  .summary-picked-item {
+      display: flex;
+      align-items: center;
+      background: #3a3a5a;
+      border-radius: 0.4rem;
+      margin-bottom: 0.5rem;
+      padding: 0.4rem;
+      box-shadow: 0 0.1rem 0.3rem rgba(0,0,0,0.2);
+      width: 100%; /* Take full width of its parent */
+  }
+  .summary-picked-item img {
+      width: 3rem;
+      height: 3rem;
+      object-fit: cover;
+      border-radius: 0.3rem;
+      margin-right: 0.6rem;
+  }
+  .summary-hero-info {
+      flex-grow: 1;
+      text-align: left;
+  }
+  .summary-hero-info .hero-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #e0e0e0;
+  }
+  .summary-hero-info .player-name {
+      font-size: 0.8rem;
+      color: #b0b0b0;
+  }
+    /* Specific styling for banned items within the summary modal */
+    .summary-picked-item.ban-item-modal {
+        background-color: #551a1a; /* Darker red for banned items */
+        border-color: #a00;
+    }
+    .summary-picked-item.ban-item-modal img {
+        border-color: #f00; /* Red border for ban images */
+    }
+  .summary-no-items {
+      font-style: italic;
+      color: #888;
+      padding: 0.5rem;
+  }
+  #playerAssignmentSummaryModal .close-button-container {
+      margin-top: 1.5rem;
+  }
+
+  /* Responsive Adjustments for Smaller Screens */
+  @media (max-width: 960px) {
+    html {
+        font-size: calc(100vw / 768 * 16px); /* Scale down for smaller screens more aggressively */
+        min-width: unset; /* Allow shrinking below 890px */
+    }
+    body {
+        padding: 0.5rem; /* Reduce padding on smaller screens */
+    }
+    h1 {
+        font-size: 1.8rem;
+    }
+    #stickyHeader {
+        padding: 0.3rem 0; /* Smaller padding for sticky header */
+    }
+    #turnInfo {
+        font-size: 1.2rem;
+    }
+    #timer {
+        font-size: 2.8rem;
+        padding: 0.3rem 0.7rem;
+    }
+    #reserves, #reserveStatus, #actionLabel {
+        font-size: 0.8rem; /* Smaller font for these elements */
+    }
+
+    #readyStatus {
+      flex-direction: column; /* Stack status groups vertically */
+      align-items: center; /* Center them when stacked */
+      gap: 0.8rem; /* Reduce gap */
+      padding: 0.5rem;
+    }
+
+    #readyStatus .status-group {
+      width: 100%; /* Take full width when stacked */
+      align-items: center; /* Center items within each status group */
+    }
+
+    #readyStatus .status-group.right { /* Ensure this also centers its items when stacked */
+      align-items: center;
+    }
+
+
+    #teamInputs {
+      flex-direction: column; /* Stack team inputs vertically */
+      align-items: center;
+      gap: 0.8rem; /* Adjust gap for vertical stacking */
+    }
+
+    #teamInputs > div {
+      width: 95%; /* Make each team input box take almost full width */
+      max-width: 40rem; /* Limit maximum width even when stacked */
+    }
+
+    .team-info-group {
+      flex-direction: column; /* Stack name and players sections within each team box */
+      align-items: center; /* Center content within the stacked team box */
+      gap: 0.4rem; /* Adjust gap for inner stacking */
+    }
+
+    .right-align-group {
+      flex-direction: column; /* For Team B, revert to column stacking, not mirrored */
+    }
+
+    .team-name-section, .players-section {
+      width: 100%; /* Make them take full width within their parent */
+      flex-basis: auto; /* Reset flex-basis */
+      min-width: unset; /* Remove min-width constraint */
+    }
+
+    #teamInputs strong {
+      text-align: center !important; /* Center align text for both teams' strong tags */
+      width: 100%;
+    }
+
+    #teamInputs > div:last-child .team-name-section input#teamBName {
+      text-align: center; /* Center align team B name input */
+    }
+
+    .player-row {
+      flex-wrap: wrap; /* Allow player inputs to wrap to the next line */
+      justify-content: center; /* Center player inputs when wrapped */
+      gap: 0.2rem; /* Reduce gap for wrapped items */
+    }
+
+    .player-row input {
+      flex-basis: calc(33% - 0.2rem); /* Make players wrap more effectively */
+      min-width: unset; /* Remove min-width constraint */
+    }
+
+    .teams {
+      flex-direction: column; /* Stack the main team containers (ban/pick slots) vertically */
+      align-items: center;
+      gap: 1.2rem;
+    }
+
+    .team {
+      width: 95%; /* Make each team's slot container take almost full width */
+      max-width: 40rem;
+    }
+
+    .ready-button {
+      width: 90%; /* Make buttons wider when stacked */
+    }
+
+    /* Player Assignment Summary Modal Specific Responsive Styles */
+    .summary-modal-content {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .summary-team-card {
+        max-width: 95%;
+    }
+    #playerAssignmentSummaryModal h3 {
+        font-size: 1.4rem;
+    }
+    .summary-team-card h4 {
+        font-size: 1.2rem;
+    }
+    .summary-picked-item img {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+    .summary-hero-info .hero-name {
+        font-size: 0.8rem;
+    }
+    .summary-hero-info .player-name {
+        font-size: 0.7rem;
+    }
+  }
+</style>
+</head>
+<body>
+<h1>Ban / Pick - Team A</h1>
+
+<div id="stickyHeader">
+  <div id="turnInfo">Ready</div>
+  <div id="timer">00:30</div>
+  <div id="reserves">
+      Reserve A: <span id="reserveA">60</span>s | Reserve B: <span id="reserveB">60</span>s
+      <div id="reserveStatus"></div>
+  </div>
+</div>
+
+<div id="infoSection">
+    <div id="actionLabel"></div>
+    <div id="readyStatus">
+        <div class="status-group">
+            <div class="sync-status">
+                Team A Status: <span id="teamAReady">Not Ready</span> <span id="syncDotA" class="sync-dot"></span>
+            </div>
+        </div>
+        <div class="status-group right">
+            <div class="sync-status">
+                Team B Status: <span id="teamBReady">Not Ready</span> <span id="syncDotB" class="sync-dot"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="teamInputs">
+  <div>
+    <div class="team-info-group">
+      <div class="team-name-section">
+        <strong>Team A Name</strong>
+        <input type="text" id="teamAName" maxlength="12" placeholder="Team A Name" />
+      </div>
+      <div class="players-section">
+        <strong>Players A</strong>
+        <div class="player-row">
+          <input type="text" class="playerA" maxlength="12" placeholder="Player 1" />
+          <input type="text" class="playerA" maxlength="12" placeholder="Player 2" />
+          <input type="text" class="playerA" maxlength="12" placeholder="Player 3" />
+          <input type="text" class="playerA" maxlength="12" placeholder="Player 4" />
+        </div>
+      </div>
+    </div>
+    <button id="readyBtnA" class="ready-button">Team A Ready</button>
+  </div>
+
+  <div>
+    <div class="team-info-group right-align-group"> <div class="team-name-section">
+        <strong>Team B Name</strong>
+        <input type="text" id="teamBName" maxlength="12" placeholder="Team B Name" disabled />
+      </div>
+      <div class="players-section">
+        <strong>Players B</strong>
+        <div class="player-row">
+          <input type="text" class="playerB" maxlength="12" placeholder="Player 1" disabled />
+          <input type="text" class="playerB" maxlength="12" placeholder="Player 2" disabled />
+          <input type="text" class="playerB" maxlength="12" placeholder="Player 3" disabled />
+          <input type="text" class="playerB" maxlength="12" placeholder="Player 4" disabled />
+        </div>
+      </div>
+    </div>
+    <button id="readyBtnB" class="ready-button" disabled>Team B Ready</button>
+  </div>
+</div>
+
+<div class="teams">
+    <div class="team" id="teamA">
+        <div class="slot ban" id="A0">
+            <span class="team-label">A</span>
+            Ban
+        </div>
+        <div class="slot" id="A1">1</div>
+        <div class="slot" id="A2">2</div>
+        <div class="slot" id="A3">3</div>
+        <div class="slot" id="A4">4</div>
+    </div>
+    <div class="team" id="teamB">
+        <div class="slot" id="B4">4</div>
+        <div class="slot" id="B3">3</div>
+        <div class="slot" id="B2">2</div>
+        <div class="slot" id="B1">1</div>
+        <div class="slot ban" id="B0">
+            <span class="team-label">B</span>
+            Ban
+        </div>
+    </div>
+</div>
+
+<div class="controls">
+    <button id="startBtn" disabled style="display:none;">Start</button>
+    <button id="confirmBtn" disabled>Confirm</button>
+    <button id="confirmPlayerAssignmentBtn" style="display:none;">Show Summary</button>
+    <button id="clearHeroBtn" style="display:none;">Clear Skills</button> 
+    <button id="resetAllBtn" style="display:none;">Reset All</button> 
+</div>
+<div class="pool" id="characterPool"></div>
+
+<div id="clearHeroConfirmModal" class="confirm-modal">
+    <div>
+        <h3>Are you sure you want to clear all selected skills?</h3>
+        <div style="display: flex; justify-content: center; gap: 1rem;">
+            <button id="confirmClearHeroYes" class="yes">Yes, Clear Skills</button>
+            <button id="confirmClearHeroNo" class="no">No, Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="resetAllConfirmModal" class="confirm-modal">
+    <div>
+        <h3>Are you sure you want to reset the entire game?<br>Team names and player data will also be cleared.</h3>
+        <div style="display: flex; justify-content: center; gap: 1rem;">
+            <button id="confirmResetAllYes" class="yes">Yes, Reset All</button>
+            <button id="confirmResetAllNo" class="no">No, Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="playerAssignmentSummaryModal" class="confirm-modal">
+    <div>
+        <h3>Player Character Assignment Summary</h3>
+        <div class="summary-modal-content" id="playerSummaryContent">
+            </div>
+        <div class="close-button-container">
+            <button id="closePlayerSummaryModal" class="confirm-close">Close</button>
+        </div>
+    </div>
+</div>
+
+
+<script>
+// กำหนดทีมปัจจุบันสำหรับหน้านี้
+const thisTeam = 'A'; 
+
+// Firebase configuration
+if (!firebase.apps.length) {
+const firebaseConfig = {
+  apiKey: "AIzaSyABt9nC7xwPS6csR3gEFgpLbKk3RN9eBzI",
+  authDomain: "ff-bp3.firebaseapp.com",
+  databaseURL: "https://ff-bp3-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ff-bp3",
+  storageBucket: "ff-bp3.firebasestorage.app",
+  messagingSenderId: "819997534622",
+  appId: "1:819997534622:web:e5a93a2b0878bd84af8e8f",
+  measurementId: "G-B6Q2170EHS"
+};
+
+
+
+
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.database();
+
+// Firebase references for game state, character pool, and team data
+const roomRef = db.ref("drafts/room1"); // Root reference for the game room
+const characterPoolRef = roomRef.child("characterPool"); // Reference for available characters
+const gameStateRef = roomRef.child("gameState"); // Reference for main game state
+const teamDataRef = roomRef.child("teamData"); // Reference for team names and players
+const teamReadinessRef = roomRef.child("teamReadiness"); // Reference for team ready status
+const slotAssignmentsRef = roomRef.child("slotAssignments"); // Reference for player assignments to slots
+
+// Define the steps of the ban/pick process
+const steps = [
+    { team: 'A', slots: ['A0'] }, // Team A bans 1 character
+    { team: 'B', slots: ['B0'] }, // Team B bans 1 character
+    { team: 'A', slots: ['A1'] }, // Team A picks 1 character
+    { team: 'B', slots: ['B2', 'B1'] }, // Team B picks 2 characters (B2 then B1)
+    { team: 'A', slots: ['A2', 'A3'] }, // Team A picks 2 characters (A2 then A3)
+    { team: 'B', slots: ['B3', 'B4'] }, // Team B picks 2 characters (B3 then B4)
+    { team: 'A', slots: ['A4'] }  // Team A picks 1 character
+];
+
+// Global state variables
+let isStarted = false;
+let isPreparing = false; // New state for the preparing phase
+let assignmentsConfirmed = false; // New state for after assignments are confirmed
+let currentStep = 0;
+let selectedImages = []; // Stores locally selected characters before confirmation
+let timer = null;
+let timeLeft = 30; // Initial time for each turn
+let reserveA = 60; // Reserve time for Team A
+let reserveB = 60; // Reserve time for Team B
+let reserveMode = false; // Flag for reserve time usage
+let characterPoolData = {}; // Stores all available characters
+let teamAReady = false;
+let teamBReady = false;
+let gameState = {}; // Global gameState variable
+let prevCurrentStep = -1; // To track step changes for confirming actions
+let localSlotAssignments = {}; // Stores locally selected player assignments before confirmation
+
+let countdownStartTime = 0; // Timestamp when the current countdown started
+
+/**
+ * Updates the game state in Firebase.
+ * @param {object} updates - An object containing the properties to update.
+ */
+function updateGameState(updates) {
+    gameStateRef.update(updates);
+}
+
+/**
+ * Renders the active slots on the UI based on the selectedImages array.
+ */
+function renderActiveSlots() {
+    const step = steps[currentStep];
+    if (!step) return;
+
+    const actionType = step.slots[0].endsWith("0") ? "Ban" : "Pick";
+
+    step.slots.forEach((slotId, index) => {
+        const slotElement = document.getElementById(slotId);
+        if (!slotElement) return;
+
+        const charEl = selectedImages[index];
+        slotElement.innerHTML = ''; // Clear the slot first
+
+        if (charEl) {
+            const img = document.createElement('img');
+            img.src = charEl.querySelector('img').src;
+            img.alt = charEl.dataset.name;
+            slotElement.appendChild(img);
+            const nameDiv = document.createElement('div');
+            nameDiv.textContent = charEl.dataset.name;
+            slotElement.appendChild(nameDiv);
+        } else {
+            slotElement.innerHTML = `<span class="team-label">${step.team}</span> ${actionType}`;
+        }
+    });
+    
+    const selectedCount = selectedImages.filter(Boolean).length;
+    document.getElementById("confirmBtn").disabled = selectedCount !== step.slots.length;
+}
+
+
+/**
+ * Highlights the current active slots based on the game step.
+ * Updates turn information and action label (BAN/PICK).
+ */
+function highlightSlot() {
+    // Remove active and highlight classes from all slots
+    document.querySelectorAll(".slot").forEach(el => el.classList.remove("active", "highlight"));
+    const step = steps[currentStep];
+    if (!step) return; // If no more steps, return
+
+    // Add active and highlight classes to current step's slots
+    step.slots.forEach(id => document.getElementById(id).classList.add("active", "highlight"));
+    document.getElementById("turnInfo").textContent = `Team ${step.team} Turn`;
+    const slotID = step.slots[0];
+    document.getElementById("actionLabel").textContent = slotID.endsWith("0") ? "BAN" : "PICK";
+    document.getElementById("actionLabel").style.color = slotID.endsWith("0") ? "#f00" : "#0f0";
+}
+
+/**
+ * Updates the timer and reserve time displays.
+ */
+function updateTimerDisplay() {
+    const min = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+    const sec = String(timeLeft % 60).padStart(2, '0');
+    document.getElementById("timer").textContent = `${min}:${sec}`;
+    document.getElementById("reserveA").textContent = reserveA;
+    document.getElementById("reserveB").textContent = reserveB;
+    document.getElementById("reserveStatus").textContent = reserveMode ? "Using Reserve Time" : "";
+}
+
+/**
+ * Starts the countdown timer for the current turn. This is now a local timer.
+ */
+function startCountdown() {
+    clearInterval(timer);
+    if (!gameState) return;
+    
+    countdownStartTime = Date.now();
+    let initialTimeLeft = timeLeft;
+    let initialReserveA = reserveA;
+    let initialReserveB = reserveB;
+    const step = steps[currentStep];
+    const team = step?.team;
+
+    timer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - countdownStartTime) / 1000);
+        let newTimeLeft = initialTimeLeft - elapsed;
+
+        if (isPreparing) {
+            timeLeft = newTimeLeft > 0 ? newTimeLeft : 0;
+            updateTimerDisplay(); 
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                finalizeAssignmentsOnTimeoutOnClient();
+            }
+            return;
+        }
+
+        // Drafting Phase Logic
+        if (newTimeLeft >= 0) {
+            timeLeft = newTimeLeft;
+            reserveMode = false;
+        } else {
+            timeLeft = 0;
+            reserveMode = true;
+            const reserveElapsed = -newTimeLeft;
+            if (team === 'A') {
+                reserveA = Math.max(0, initialReserveA - reserveElapsed);
+            } else if (team === 'B') {
+                reserveB = Math.max(0, initialReserveB - reserveElapsed);
+            }
+        }
+        
+        updateTimerDisplay();
+
+        if (timeLeft <= 0 && ((team === 'A' && reserveA <= 0) || (team === 'B' && reserveB <= 0))) {
+            clearInterval(timer);
+            if (team === thisTeam) { 
+                 autoFinalizeStepOnClient();
+            }
+        }
+    }, 1000);
+}
+
+
+// Event listener for "Confirm" button
+document.getElementById("confirmBtn").onclick = () => {
+    const step = steps[currentStep];
+
+    // During the preparing phase
+    if (isPreparing) {
+        const teamAssignments = {};
+        for (const slotId in localSlotAssignments) {
+            if (slotId.startsWith(thisTeam)) {
+                teamAssignments[slotId] = localSlotAssignments[slotId];
+            }
+        }
+        // Update Firebase with only this team's assignments
+        slotAssignmentsRef.update(teamAssignments);
+        // Give user feedback by disabling the button
+        document.getElementById("confirmBtn").disabled = true;
+        return;
+    }
+
+    // During the drafting phase (ban/pick)
+    if (!isStarted || !step || step.team !== thisTeam) return;
+
+    const updates = {};
+    updates.reserveA = reserveA;
+    updates.reserveB = reserveB;
+
+    selectedImages.forEach((charEl, i) => {
+        const slotId = step.slots[i];
+        if (charEl) {
+            const name = charEl.dataset.name;
+            const url = charEl.querySelector('img').src;
+            updates[`slots/${slotId}`] = { name: name, url: url };
+        } else {
+            updates[`slots/${slotId}`] = null;
+        }
+    });
+
+    if (currentStep + 1 >= steps.length) {
+        // Last step of draft, transition to Preparing phase
+        updates.currentStep = currentStep + 1;
+        updates.isStarted = false;
+        updates.isPreparing = true;
+        updates.assignmentsConfirmed = false;
+        updates.timeLeft = 120;
+    } else {
+        // Proceed to next drafting step
+        updates.currentStep = currentStep + 1;
+        updates.timeLeft = 30; // Reset timer for the next turn
+        updates.reserveMode = false;
+    }
+    
+    selectedImages = [];
+    document.getElementById("confirmBtn").disabled = true;
+    updateCharacterPoolVisuals();
+    updateGameState(updates);
+};
+
+// Event listener for Team A Ready button
+document.getElementById("readyBtnA").onclick = () => {
+    teamReadinessRef.update({ teamA: !teamAReady });
+};
+
+
+// Main listener for game state changes from Firebase
+gameStateRef.on("value", snapshot => {
+    
+    gameState = snapshot.val();
+    const teamAReadyStatusSpan = document.getElementById("teamAReady");
+    const teamBReadyStatusSpan = document.getElementById("teamBReady");
+    const syncDotA = document.getElementById("syncDotA");
+    const syncDotB = document.getElementById("syncDotB");
+    const turnInfoElement = document.getElementById("turnInfo");
+    const reserveStatusElement = document.getElementById("reserveStatus");
+    
+    if (!gameState) {
+        turnInfoElement.textContent = "Ready";
+        document.getElementById("actionLabel").textContent = "";
+        document.getElementById("confirmBtn").disabled = true;
+        document.getElementById("readyBtnA").disabled = false;
+        document.getElementById("readyBtnB").disabled = false;
+        
+        selectedImages = [];
+        if (timer) clearInterval(timer);
+        document.querySelectorAll(".slot").forEach(el => {
+            el.classList.remove("confirmed", "active", "highlight");
+            el.querySelector('select')?.remove();
+            if (el.classList.contains("ban")) {
+                el.innerHTML = `<span class="team-label">${el.id.startsWith('A') ? 'A' : 'B'}</span> Ban`;
+            } else {
+                el.innerHTML = el.id.slice(1);
+            }
+        });
+        document.querySelectorAll(".character").forEach(el => el.classList.remove("used"));
+        return;
+    }
+
+    // Update global state vars
+    isStarted = gameState.isStarted;
+    isPreparing = gameState.isPreparing;
+    assignmentsConfirmed = gameState.assignmentsConfirmed;
+    currentStep = gameState.currentStep;
+    timeLeft = gameState.timeLeft;
+    reserveA = gameState.reserveA;
+    reserveB = gameState.reserveB;
+    reserveMode = gameState.reserveMode;
+    updateTimerDisplay();
+
+    // Disable ready buttons if game has started
+    if (isStarted || isPreparing || assignmentsConfirmed) {
+        document.getElementById("readyBtnA").disabled = true;
+        document.getElementById("readyBtnB").disabled = true;
+    }
+
+    // Base Draw: Clear and redraw all slots and confirmed picks
+    document.querySelectorAll(".slot").forEach(el => {
+        el.classList.remove("confirmed", "active", "highlight");
+        el.querySelector('select')?.remove();
+        if (el.classList.contains("ban")) {
+            el.innerHTML = `<span class="team-label">${el.id.startsWith('A') ? 'A' : 'B'}</span> Ban`;
+        } else {
+            el.innerHTML = el.id.slice(1);
+        }
+    });
+    updateCharacterPoolVisuals();
+
+    if (gameState.slots) {
+        for (const slotId in gameState.slots) {
+            const char = gameState.slots[slotId];
+            if (char && char.name && char.url) {
+                const slot = document.getElementById(slotId);
+                if (slot) {
+                    slot.innerHTML = '';
+                    const img = document.createElement('img');
+                    img.src = char.url;
+                    img.alt = char.name;
+                    slot.appendChild(img);
+                    const nameDiv = document.createElement('div');
+                    nameDiv.textContent = char.name;
+                    slot.appendChild(nameDiv);
+                    slot.classList.add("confirmed");
+                }
+            }
+        }
+    }
+
+    // State-based rendering logic
+    const step = steps[currentStep];
+    const isMyTurn = (isStarted && step && step.team === thisTeam);
+    const confirmButton = document.getElementById("confirmBtn");
+
+    if (isStarted && step) { // Drafting phase
+        highlightSlot();
+        if (currentStep !== prevCurrentStep) {
+            selectedImages = Array(step.slots.length).fill(null);
+            prevCurrentStep = currentStep;
+        }
+        renderActiveSlots();
+        if (timer) clearInterval(timer);
+        startCountdown();
+        confirmButton.disabled = !isMyTurn;
+        syncDotA.classList.add("connected"); syncDotA.classList.remove("disconnected");
+        syncDotB.classList.add("connected"); syncDotB.classList.remove("disconnected");
+        teamAReadyStatusSpan.textContent = "Ready";
+        teamBReadyStatusSpan.textContent = "Ready";
+    } else if (isPreparing) { // Preparing phase
+        turnInfoElement.textContent = "Assign Players";
+        document.getElementById("actionLabel").textContent = "";
+        reserveStatusElement.textContent = "Preparing Time";
+        reserveStatusElement.style.color = "#aaffaa";
+        if (timer) clearInterval(timer);
+        startCountdown();
+        confirmButton.textContent = 'Submit';
+        showPlayerDropdowns(true);
+        checkAssignmentsComplete();
+    } else if (assignmentsConfirmed) { // Final "Draft Complete" state
+        turnInfoElement.textContent = "Draft Complete";
+        document.getElementById("actionLabel").textContent = "";
+        reserveStatusElement.textContent = "";
+        if (timer) clearInterval(timer);
+        document.getElementById("timer").textContent = "00:00";
+        confirmButton.disabled = true;
+        showPlayerDropdowns(false); // Show assignments but disabled
+    } else { // Pre-game state
+        document.getElementById("actionLabel").textContent = "";
+        confirmButton.disabled = true;
+        document.getElementById("readyBtnA").disabled = false;
+        selectedImages = [];
+        prevCurrentStep = -1; // Reset for new game
+        if (timer) clearInterval(timer);
+        if (!teamAReady && !teamBReady) turnInfoElement.textContent = "Waiting for teams to ready up...";
+        else if (!teamAReady) turnInfoElement.textContent = "Waiting for Team A to Ready";
+        else if (!teamBReady) turnInfoElement.textContent = "Waiting for Team B to Ready";
+        else turnInfoElement.textContent = "Waiting for Admin to Start!";
+        if (teamAReady) { syncDotA.classList.add("connected"); syncDotA.classList.remove("disconnected"); teamAReadyStatusSpan.textContent = "Ready"; }
+        else { syncDotA.classList.remove("connected"); syncDotA.classList.add("disconnected"); teamAReadyStatusSpan.textContent = "Not Ready"; }
+        if (teamBReady) { syncDotB.classList.add("connected"); syncDotB.classList.remove("disconnected"); teamBReadyStatusSpan.textContent = "Ready"; }
+        else { syncDotB.classList.remove("connected"); syncDotB.classList.add("disconnected"); teamBReadyStatusSpan.textContent = "Not Ready"; }
+    }
+});
+
+
+// Listen for team data changes
+teamDataRef.on("value", snapshot => {
+    const teamData = snapshot.val();
+    if (teamData) {
+        document.getElementById("teamAName").value = teamData.teamAName || "";
+        document.getElementById("teamBName").value = teamData.teamBName || "";
+        const playerAInputs = document.querySelectorAll(".playerA");
+        for (let i = 0; i < 4; i++) if (playerAInputs[i]) playerAInputs[i].value = teamData.playersA?.[i] || "";
+        const playerBInputs = document.querySelectorAll(".playerB");
+        for (let i = 0; i < 4; i++) if (playerBInputs[i]) playerBInputs[i].value = teamData.playersB?.[i] || "";
+    }
+});
+
+// Listen for team readiness changes
+teamReadinessRef.on("value", snapshot => {
+    const readiness = snapshot.val() || { teamA: false, teamB: false };
+    teamAReady = readiness.teamA;
+    teamBReady = readiness.teamB;
+    const readyBtnA = document.getElementById("readyBtnA");
+    readyBtnA.textContent = teamAReady ? "Ready!" : "Click when Ready";
+    teamAReady ? readyBtnA.classList.add("ready-active") : readyBtnA.classList.remove("ready-active");
+});
+
+// Listen for slot assignments changes
+slotAssignmentsRef.on("value", snapshot => {
+    const assignments = snapshot.val() || {};
+    localSlotAssignments = { ...assignments };
+    if (isPreparing || assignmentsConfirmed) {
+        showPlayerDropdowns(isPreparing);
+    }
+    if (isPreparing) {
+        checkAssignmentsComplete();
+    }
+});
+
+// Listen for Firebase connection status
+db.ref(".info/connected").on("value", function(snapshot) {
+    const connected = snapshot.val();
+    const syncDotA = document.getElementById("syncDotA");
+    if (!connected) {
+        syncDotA.classList.remove("connected"); syncDotA.classList.add("disconnected");
+        document.getElementById("teamAReady").textContent = "Disconnected";
+    }
+});
+
+
+document.getElementById("teamAName").oninput = (e) => teamDataRef.child("teamAName").set(e.target.value);
+document.querySelectorAll(".playerA").forEach((input, index) => {
+    input.oninput = () => {
+        const players = Array.from(document.querySelectorAll(".playerA")).map(el => el.value);
+        teamDataRef.child("playersA").set(players);
+    };
+});
+
+// Load character pool data and set up click handlers
+characterPoolRef.once("value").then(snapshot => {
+    const data = snapshot.val();
+    if (!data) return;
+    characterPoolData = data;
+    const poolContainer = document.getElementById("characterPool");
+    Object.entries(data).forEach(([name, url]) => {
+        const div = document.createElement("div");
+        div.className = "character";
+        div.innerHTML = `<img src="${url}" alt="${name}"><div>${name}</div>`;
+        div.dataset.name = name;
+        div.onclick = () => {
+            const step = steps[currentStep];
+            if (!isStarted || !step || step.team !== thisTeam) return;
+
+            gameStateRef.once("value", gsSnapshot => {
+                const globalUsedNames = Object.values(gsSnapshot.val().slots || {}).map(char => char.name);
+                if (globalUsedNames.includes(name)) return;
+                const existingIndex = selectedImages.findIndex(el => el && el.dataset.name === name);
+                if (existingIndex > -1) {
+                    selectedImages[existingIndex].classList.remove("used");
+                    selectedImages[existingIndex] = null;
+                } else {
+                    let targetIndex = selectedImages.findIndex(el => el === null);
+                    if (targetIndex !== -1) {
+                        selectedImages[targetIndex] = div;
+                        div.classList.add("used");
+                    }
+                }
+                renderActiveSlots();
+                updateCharacterPoolVisuals();
+            });
+        };
+        poolContainer.appendChild(div);
+    });
+});
+
+// Add click listener to slots for deselection
+steps.flatMap(step => step.slots).forEach(slotId => {
+    const slot = document.getElementById(slotId);
+    if (!slot) return;
+    slot.addEventListener("click", () => {
+        const step = steps[currentStep];
+        if (!isStarted || !step || step.team !== thisTeam) return;
+
+        if (!slot.classList.contains("active") || !step.slots.includes(slotId)) return;
+        
+        const nameInSlot = slot.querySelector("div")?.textContent;
+        if (!nameInSlot) return;
+
+        const slotIndexInStep = step.slots.indexOf(slotId);
+        
+        if (selectedImages[slotIndexInStep]) {
+            selectedImages[slotIndexInStep] = null;
+        }
+
+        renderActiveSlots();
+        updateCharacterPoolVisuals();
+    });
+});
+
+/**
+ * Updates character pool visuals (used/unused state).
+ */
+function updateCharacterPoolVisuals() {
+    gameStateRef.once("value", snapshot => {
+        const currentGameState = snapshot.val() || {};
+        const confirmedUsedNames = Object.values(currentGameState.slots || {}).map(char => char.name);
+        document.querySelectorAll(".character").forEach(charEl => {
+            const charName = charEl.dataset.name;
+            const isLocallySelected = selectedImages.some(el => el && el.dataset.name === charName);
+            if (confirmedUsedNames.includes(charName) || isLocallySelected) {
+                charEl.classList.add("used");
+            } else {
+                charEl.classList.remove("used");
+            }
+        });
+    });
+}
+
+/**
+ * Checks if all picked characters FOR THIS TEAM have an assigned player.
+ */
+function checkAssignmentsComplete() {
+    if (!isPreparing || !gameState || !gameState.slots) {
+        document.getElementById("confirmBtn").disabled = true;
+        return;
+    }
+    const pickedSlotIds = Object.keys(gameState.slots).filter(id => id.startsWith(thisTeam) && !id.endsWith('0') && gameState.slots[id]);
+    if (pickedSlotIds.length === 0) {
+        document.getElementById("confirmBtn").disabled = true;
+        return;
+    }
+    const assignedCount = pickedSlotIds.filter(id => localSlotAssignments[id] && localSlotAssignments[id] !== "").length;
+    document.getElementById("confirmBtn").disabled = assignedCount !== pickedSlotIds.length;
+}
+
+/**
+ * Creates and displays player assignment dropdowns within the character slots.
+ * @param {boolean} enableSelection - True if dropdowns should be enabled.
+ */
+function showPlayerDropdowns(enableSelection = false) {
+    const playerA = Array.from(document.querySelectorAll('.playerA')).map(input => input.value).filter(Boolean);
+    const playerB = Array.from(document.querySelectorAll('.playerB')).map(input => input.value).filter(Boolean);
+    const targetSlots = ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"];
+
+    targetSlots.forEach(slotId => {
+        const slot = document.getElementById(slotId);
+        slot.querySelector("select")?.remove(); // Remove old dropdown first
+
+        if (slot && slot.querySelector("img")) {
+            const isMyTeamSlot = slotId.startsWith(thisTeam);
+            const select = document.createElement("select");
+            select.disabled = !enableSelection || !isMyTeamSlot;
+
+            const defaultOpt = document.createElement("option");
+            defaultOpt.value = "";
+            defaultOpt.textContent = "Player";
+            select.appendChild(defaultOpt);
+
+            const teamPlayers = slotId.startsWith("A") ? playerA : playerB;
+            teamPlayers.forEach(name => {
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+            
+            // Logic to control visibility of assignments
+            if (assignmentsConfirmed) {
+                // If final assignments are confirmed by admin, show everyone's assignment
+                select.value = localSlotAssignments[slotId] || "";
+            } else if (isPreparing && isMyTeamSlot) {
+                // During preparing phase, only show this team's assignment
+                select.value = localSlotAssignments[slotId] || "";
+            } else {
+                // Otherwise, don't show any value for the opponent's slots during preparing
+                select.value = "";
+            }
+
+            select.onchange = (e) => {
+                if (isMyTeamSlot) { // Ensure only this team can change their assignments
+                    localSlotAssignments[slotId] = e.target.value;
+                    if (isPreparing) {
+                        checkAssignmentsComplete();
+                    }
+                }
+            };
+            slot.appendChild(select);
+        }
+    });
+}
+
+/**
+ * Finalizes character selection for the current team when their timer runs out.
+ */
+function autoFinalizeStepOnClient() {
+    const step = steps[currentStep];
+    if (!step || step.team !== thisTeam) return;
+
+    gameStateRef.once("value", snapshot => {
+        const currentGameState = snapshot.val() || {};
+        const confirmedUsedNames = Object.values(currentGameState.slots || {}).map(char => char.name);
+
+        const updates = {};
+        const locallySelectedNames = selectedImages.map(el => el ? el.dataset.name : null);
+        const allUsedNames = [...confirmedUsedNames, ...locallySelectedNames.filter(n => n)];
+
+        const available = Object.entries(characterPoolData).filter(([name]) => !allUsedNames.includes(name));
+        
+        updates.reserveA = reserveA;
+        updates.reserveB = reserveB;
+
+        step.slots.forEach((slotId, i) => {
+            if (selectedImages[i]) {
+                updates[`slots/${slotId}`] = {
+                    name: selectedImages[i].dataset.name,
+                    url: selectedImages[i].querySelector('img').src
+                };
+            } else {
+                if (available.length > 0) {
+                    const [name, url] = available.splice(Math.floor(Math.random() * available.length), 1)[0];
+                    updates[`slots/${slotId}`] = { name: name, url: url };
+                } else {
+                    console.warn(`No characters left to auto-select for slot ${slotId}.`);
+                }
+            }
+        });
+
+        if (currentStep + 1 >= steps.length) {
+            updates.currentStep = currentStep + 1;
+            updates.isStarted = false;
+            updates.isPreparing = true;
+            updates.assignmentsConfirmed = false;
+            updates.timeLeft = 120;
+        } else {
+            updates.currentStep = currentStep + 1;
+            updates.timeLeft = 30;
+            updates.reserveMode = false;
+        }
+        updateGameState(updates);
+    });
+}
+
+
+/**
+ * Finalizes player assignments for this team when the preparing timer runs out.
+ */
+async function finalizeAssignmentsOnTimeoutOnClient() {
+    const teamDataSnapshot = await teamDataRef.once('value');
+    const teamData = teamDataSnapshot.val();
+    const teamPlayers = thisTeam === 'A' ? (teamData.playersA || []) : (teamData.playersB || []);
+
+    const assignmentsSnapshot = await slotAssignmentsRef.once('value');
+    const confirmedAssignments = assignmentsSnapshot.val() || {};
+
+    const gameStateSnapshot = await gameStateRef.once('value');
+    const currentGameState = gameStateSnapshot.val() || {};
+    
+    // Slots for this team that have a hero picked
+    const myTeamPickedSlots = Object.keys(currentGameState.slots || {}).filter(id => id.startsWith(thisTeam) && !id.endsWith('0') && currentGameState.slots[id]);
+    
+    // Players of this team who are already confirmed in an assignment
+    const alreadyAssignedPlayers = Object.values(confirmedAssignments).filter(player => teamPlayers.includes(player));
+
+    // Players of this team who are selected in dropdowns but not yet confirmed
+    const locallySelectedPlayers = Object.entries(localSlotAssignments)
+                                      .filter(([slotId, player]) => myTeamPickedSlots.includes(slotId) && player)
+                                      .map(([slotId, player]) => player);
+
+    // Combine confirmed and locally selected players to find who is available.
+    let availablePlayers = teamPlayers.filter(p => p && !alreadyAssignedPlayers.includes(p) && !locallySelectedPlayers.includes(p) && p);
+    
+    availablePlayers.sort(() => 0.5 - Math.random());
+    
+    const updates = {};
+
+    myTeamPickedSlots.forEach(slotId => {
+        // If the slot is not yet confirmed in firebase...
+        if (!confirmedAssignments[slotId]) {
+            // ...check if there is a local selection.
+            if (localSlotAssignments[slotId]) {
+                updates[slotId] = localSlotAssignments[slotId];
+            } 
+            // ...otherwise, if it's empty, assign a random available player.
+            else {
+                if (availablePlayers.length > 0) {
+                    updates[slotId] = availablePlayers.pop();
+                }
+            }
+        }
+    });
+
+    if (Object.keys(updates).length > 0) {
+        slotAssignmentsRef.update(updates);
+    }
+}
+
+
+</script>
+</body>
+</html>
